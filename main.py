@@ -143,24 +143,47 @@ async def get_top_pairs(
     
     return await fetch_from_cryptocompare("/top/pairs", params)
 
-# 5️⃣ Get latest news
+# 5️⃣ Get latest news with improved response handling
 @app.get("/news")
 async def get_news(
     categories: Optional[str] = Query(None, description="Categories (e.g., BTC,Regulation)"),
-    limit: Optional[int] = Query(10, description="Number of news items (max 50)")
+    limit: Optional[int] = Query(5, description="Number of news items (max 20)"),
+    lang: Optional[str] = Query("EN", description="Language (e.g., EN,PT,ES)")
 ):
     """
-    Get latest cryptocurrency news
+    Get latest cryptocurrency news with simplified response format
     """
     params = {
-        "limit": min(limit, 50)
+        "limit": min(limit, 20),  # Reduce default and max limit
+        "lang": lang.upper()
     }
     
     if categories:
         params["categories"] = categories
     
-    return await fetch_from_cryptocompare("/v2/news/", params)
-
+    full_response = await fetch_from_cryptocompare("/v2/news/", params)
+    
+    # Extract only the essential information to reduce response size
+    simplified_news = []
+    
+    if "Data" in full_response and isinstance(full_response["Data"], list):
+        for item in full_response["Data"][:limit]:
+            simplified_news.append({
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "url": item.get("url"),
+                "source": item.get("source"),
+                "published_on": item.get("published_on"),
+                "categories": item.get("categories", "").split("|"),
+                "tags": item.get("tags", "").split("|") if item.get("tags") else []
+            })
+    
+    return {
+        "status": "success",
+        "count": len(simplified_news),
+        "news": simplified_news
+    }    
+    
 # 6️⃣ Get multiple symbols price
 @app.get("/pricemulti")
 async def get_pricemulti(
